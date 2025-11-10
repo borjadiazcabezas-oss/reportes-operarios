@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro de Turno - Reporte</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <style> body { font-family: Inter, sans-serif; background:#f3f4f6 } .action-button{ transition:.12s } </style>
+</head>
+<body class="p-4">
+<div class="max-w-4xl mx-auto bg-white p-4 rounded-xl shadow">
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold">Registro de Turno</h1>
+    <div class="mt-2 text-sm text-gray-600">
+      Usuario: <span id="operator-name"></span>
+    </div>
+    <div class="mt-1 text-xs text-gray-500">
+      Estado: <span id="user-id">Inicializando...</span>
+    </div>
+  </header>
+
+
+    <section class="mb-4 bg-green-50 p-4 rounded">
+      <h2 class="font-semibold">Actividad actual</h2>
+      <p id="current-activity-name" class="font-bold">Ninguna actividad en curso</p>
+      <div id="timer-box" class="text-3xl font-bold mt-2">00:00:00</div>
+      <button id="stop-button" class="mt-3 px-4 py-2 bg-red-600 text-white rounded hidden" onclick="promptForComment('stop')">FINALIZAR Y REGISTRAR</button>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="font-semibold">Iniciar actividad</h2>
+      <div id="activity-buttons" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3"></div>
+    </section>
+
+    <section>
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="font-semibold">Historial</h2>
+        <div>
+          <button id="report-button" class="px-3 py-1 bg-blue-600 text-white rounded" onclick="generateReportAndSend()">📤 Mandar Reporte</button>
+          <button id="delete-button" class="px-3 py-1 ml-2 bg-gray-200 rounded" onclick="clearAllData()">🗑️ Borrar todo</button>
+        </div>
+      </div>
+      <div id="history-list" class="space-y-2"></div>
+      <p id="empty-history-message" class="text-gray-500">No hay registros guardados.</p>
+    </section>
+  </div>
+
+  <!-- Modal Comentario -->
+  <div id="comment-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-4 rounded max-w-md w-11/12">
+      <h3 id="comment-modal-title" class="font-bold mb-2">Comentario</h3>
+      <textarea id="comment-input" rows="4" class="w-full border p-2 rounded" placeholder="Comentario..."></textarea>
+      <div class="mt-3 flex justify-end space-x-2">
+        <button onclick="closeCommentModal(true)" class="px-3 py-1 bg-gray-200 rounded">Omitir</button>
+        <button onclick="closeCommentModal(false)" class="px-3 py-1 bg-green-600 text-white rounded">Guardar</button>
+      </div>
+      <input type="hidden" id="modal-action-type">
+      <input type="hidden" id="modal-activity-type">
+    </div>
+  </div>
+
+  <script type="module">
+    // ======= CONFIG (no editar más abajo salvo REPORT_FUNCTION_URL si cambias Vercel) =======
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAvXoCjalqf0B-Flr706lPPwbFguGi5OTs",
+      authDomain: "aguilarproductividad-1bcd6.firebaseapp.com",
+      projectId: "aguilarproductividad-1bcd6",
+      storageBucket: "aguilarproductividad-1bcd6.appspot.com",
+      messagingSenderId: "995069538159",
+      appId: "1:995069538159:web:1eb97bfd5d08b77fa9c29a"
+    };
+    const APP_ID = "aguilarproductividad-1bcd6"; // usado en la ruta artifacts/{appId}
+    const REPORT_FUNCTION_URL = "https://express-js-on-vercel.vercel.app/api/sendReport";
+    const REPORT_RECIPIENT = "borjadiazcabezas@gmail.com";
+    // OPERATOR placeholders (el script reemplaza Eloy Quiñones y 40)
+    const OPERATOR_NAME = "NOMBRE_OPERARIO";
+    const OPERATOR_CODE = "CODIGO_OPERARIO";
+    // ======= NO EDITAR MÁS ABAJO =======
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, onSnapshot, writeBatch, deleteDoc, Timestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // init firebase
+    const app = initializeApp(FIREBASE_CONFIG);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // DOM refs
+    const userIdEl = document.getElementById('user-id');
+    const activityButtonsContainer = document.getElementById('activity-buttons');
+    const currentActivityNameEl = document.getElementById('current-activity-name');
+    const timerBoxEl = document.getElementById('timer-box');
+    const stopButtonEl = document.getElementById('stop-button');
+    const historyListEl = document.getElementById('history-list');
+    const emptyHistoryMessageEl = document.getElementById('empty-history-message');
+
+document.getElementById('operator-name').textContent = `${OPERATOR_NAME} (${OPERATOR_CODE})`;
+
+    const activityTypes = [
+      { type: 'Produccion', color: 'bg-green-600' },
+      { type: 'Limpieza', color: 'bg-yellow-600' },
+      { type: 'Averia', color: 'bg-red-600' },
+      { type: 'Mantenimiento', color: 'bg-blue-600' },
+      { type: 'Arreglo Palets', color: 'bg-purple-600' },
+      { type: 'Cambio', color: 'bg-orange-600' },
+      { type: 'OTROS', color: 'bg-gray-600' }
+    ];
+
+    // utils
+    const pad = n => String(n).padStart(2,'0');
+    const formatDuration = ms => {
+      if (!ms || ms < 0) return '00:00:00';
+      const s = Math.floor(ms/1000);
+      const h = Math.floor(s/3600);
+      const m = Math.floor((s%3600)/60);
+      const sec = s%60;
+      return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+    };
+
+    // firestore refs using APP_ID
+    const getActivitiesCollectionRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'activities');
+    const getCurrentActivityDocRef = (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'current_activity_state', 'state');
+
+    // app state
+    let userId = null;
+    let isAuthReady = false;
+    let currentActivity = null;
+    let timerInterval = null;
+    let unsubscribe = null;
+
+    // UI updates
+    const updateTimerDisplay = () => {
+      if (currentActivity && currentActivity.startTime) {
+        const startMs = currentActivity.startTime.toMillis ? currentActivity.startTime.toMillis() : currentActivity.startTime;
+        timerBoxEl.textContent = formatDuration(Date.now() - startMs);
+      } else {
+        timerBoxEl.textContent = '00:00:00';
+      }
+    };
+
+    const renderActivityButtons = () => {
+      activityButtonsContainer.innerHTML = '';
+      activityTypes.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = `action-button p-3 rounded text-white font-bold ${a.color}`;
+        btn.textContent = a.type;
+        btn.onclick = () => {
+          if (currentActivity) {
+            if (currentActivity.name === a.type) return promptForComment('stop');
+            stopActivity().then(() => promptForComment('start', a.type));
+          } else {
+            promptForComment('start', a.type);
+          }
+        }
+        activityButtonsContainer.appendChild(btn);
+      });
+    };
+
+    const updateUIState = () => {
+      if (currentActivity) {
+        currentActivityNameEl.textContent = currentActivity.name;
+        stopButtonEl.classList.remove('hidden');
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+      } else {
+        currentActivityNameEl.textContent = 'Ninguna actividad en curso';
+        stopButtonEl.classList.add('hidden');
+        if (timerInterval) clearInterval(timerInterval);
+      }
+      updateTimerDisplay();
+    };
+
+    // start / stop activities
+    const startActivity = async (activityType, comment='') => {
+      const startTime = Date.now();
+      currentActivity = { name: activityType, startTime: startTime, startComment: comment || null };
+      updateUIState();
+      if (!isAuthReady) return;
+      const payload = { activityType, startTime: Timestamp.fromMillis(startTime), startComment: comment || null };
+      try { await setDoc(getCurrentActivityDocRef(userId), payload); } catch (err) { console.error(err); }
+    };
+
+    const stopActivity = async (comment='') => {
+      if (!currentActivity) return;
+      const endTime = Date.now();
+      const startTimeMs = currentActivity.startTime.toMillis ? currentActivity.startTime.toMillis() : currentActivity.startTime;
+      const durationMs = endTime - startTimeMs;
+      if (!isAuthReady) { currentActivity = null; updateUIState(); return; }
+
+      const newActivity = {
+        activityType: currentActivity.name,
+        startTime: Timestamp.fromMillis(startTimeMs),
+        endTime: Timestamp.fromMillis(endTime),
+        durationMs,
+        timestamp_created: Timestamp.now(),
+        startComment: currentActivity.startComment || null,
+        endComment: comment || null
+      };
+
+      try {
+        const newDocRef = doc(getActivitiesCollectionRef(userId));
+        const batch = writeBatch(db);
+        batch.set(newDocRef, newActivity);
+        batch.delete(getCurrentActivityDocRef(userId));
+        await batch.commit();
+      } catch (err) { console.error(err); }
+
+      currentActivity = null;
+      updateUIState();
+    };
+
+    // resume + listener
+    const resumeActivityOnLoad = async () => {
+      if (!isAuthReady) return;
+      try {
+        const snap = await getDoc(getCurrentActivityDocRef(userId));
+        if (snap.exists()) {
+          const data = snap.data();
+          currentActivity = { name: data.activityType, startTime: data.startTime, startComment: data.startComment || null };
+        } else currentActivity = null;
+        updateUIState();
+      } catch (err) { console.error(err); }
+    };
+
+    const setupListener = () => {
+      if (!isAuthReady) return;
+      if (unsubscribe) unsubscribe();
+      const q = query(getActivitiesCollectionRef(userId));
+      unsubscribe = onSnapshot(q, (snap) => {
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a,b) => b.startTime.toMillis() - a.startTime.toMillis());
+        renderHistory(arr);
+      });
+    };
+
+    const renderHistory = (arr) => {
+      historyListEl.innerHTML = '';
+      if (!arr || arr.length === 0) { emptyHistoryMessageEl.classList.remove('hidden'); return; }
+      emptyHistoryMessageEl.classList.add('hidden');
+      arr.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'p-3 border rounded bg-white shadow';
+        const start = item.startTime.toDate().toLocaleString('es-ES');
+        const end = item.endTime ? item.endTime.toDate().toLocaleString('es-ES') : 'N/A';
+        div.innerHTML = `<strong>${item.activityType}</strong>
+                         <div class="text-sm">Inicio: ${start} — Fin: ${end} — Duración: <strong>${formatDuration(item.durationMs)}</strong></div>
+                         ${item.startComment ? `<div class="text-xs mt-1 p-1 bg-indigo-50 rounded">Inicio: ${item.startComment}</div>` : ''}
+                         ${item.endComment ? `<div class="text-xs mt-1 p-1 bg-yellow-50 rounded">Fin: ${item.endComment}</div>` : ''}`;
+        historyListEl.appendChild(div);
+      });
+    };
+
+    // modal
+    window.promptForComment = (action, activityType = null) => {
+      document.getElementById('comment-input').value = '';
+      document.getElementById('modal-action-type').value = action;
+      document.getElementById('modal-activity-type').value = activityType || (currentActivity?currentActivity.name:'');
+      document.getElementById('comment-modal-title').textContent = action === 'start' ? `Comentario de Inicio: ${activityType}` : `Comentario de Finalización: ${currentActivity ? currentActivity.name : ''}`;
+      document.getElementById('comment-modal').classList.remove('hidden');
+    };
+    window.closeCommentModal = (omit) => {
+      const comment = omit ? '' : document.getElementById('comment-input').value.trim();
+      const action = document.getElementById('modal-action-type').value;
+      const activityType = document.getElementById('modal-activity-type').value;
+      document.getElementById('comment-modal').classList.add('hidden');
+      if (action === 'start') startActivity(activityType, comment);
+      else stopActivity(comment);
+    };
+
+    // send report via Vercel
+    async function generateReportAndSend() {
+      if (!isAuthReady) { alert("Debes estar conectado a Firebase para enviar el reporte."); return; }
+      try {
+        const snaps = await getDocs(getActivitiesCollectionRef(userId));
+        const activities = [];
+        snaps.forEach(d => activities.push(d.data()));
+        if (!activities.length) { alert("No hay datos para enviar."); return; }
+
+        const rows = activities.map(a => {
+          const start = a.startTime.toDate().toLocaleString('es-ES');
+          const end = a.endTime ? a.endTime.toDate().toLocaleString('es-ES') : 'N/A';
+          const duration = formatDuration(a.durationMs);
+          return `<tr>
+            <td style="padding:8px;border:1px solid #ddd">${a.activityType}</td>
+            <td style="padding:8px;border:1px solid #ddd">${start}</td>
+            <td style="padding:8px;border:1px solid #ddd">${end}</td>
+            <td style="padding:8px;border:1px solid #ddd">${duration}</td>
+            <td style="padding:8px;border:1px solid #ddd">${a.startComment || '-'}</td>
+            <td style="padding:8px;border:1px solid #ddd">${a.endComment || '-'}</td>
+          </tr>`;
+        }).join('');
+
+const htmlBody = `
+  <h2>Reporte diario – ${OPERATOR_NAME} (${OPERATOR_CODE})</h2>
+  <table style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif">
+    <thead>
+      <tr>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Actividad</th>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Inicio</th>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Fin</th>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Duración</th>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Comentario inicio</th>
+        <th style="padding:8px;border:1px solid #ddd;background:#f3f4f6">Comentario fin</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+`;
+
+const subject = `Reporte diario – ${OPERATOR_NAME} (${OPERATOR_CODE})`;
+
+const resp = await fetch(REPORT_FUNCTION_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    subject,
+    recipient: REPORT_RECIPIENT,
+    html: htmlBody,
+    text: `Reporte generado por ${OPERATOR_NAME} (${OPERATOR_CODE}) - ver versión HTML`
+  })
+});
+
+const json = await resp.json();
+if (resp.ok) {
+  alert("✅ Reporte enviado correctamente.");
+  if (confirm("¿Deseas borrar todos los registros del día?")) {
+    await clearAllData();
+  }
+} else {
+  console.error("Error desde función:", json);
+  alert("Error al enviar el reporte: " + (json.error || 'ver consola'));
+}
+} catch (err) {
+console.error("Error al generar/enviar reporte:", err);
+alert("Error al enviar el reporte. Revisa la consola.");
+}
+}
+
+// ✅ --- clear all ---
+async function clearAllData() {
+  if (!isAuthReady) return alert("No conectado.");
+  if (!confirm("Confirmar borrado de TODO el historial de este usuario?")) return;
+  try {
+    const snaps = await getDocs(getActivitiesCollectionRef(userId));
+    const batch = writeBatch(db);
+    snaps.forEach(d => batch.delete(doc(getActivitiesCollectionRef(userId), d.id)));
+    batch.delete(getCurrentActivityDocRef(userId));
+    await batch.commit();
+    currentActivity = null;
+    updateUIState();
+    alert("Borrado completado.");
+  } catch (err) {
+    console.error("Error al borrar datos:", err);
+    alert("Error al borrar datos. Ver consola.");
+  }
+}
+
+// ✅ --- init ---
+async function initApp() {
+  renderActivityButtons();
+  try { await enableIndexedDbPersistence(db); console.log("Persistencia local activada."); } catch (err) { console.warn("Persistencia no activada:", err); }
+  signInAnonymously(auth).catch(err => console.error("Error anon signIn:", err));
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      userId = user.uid;
+      userIdEl.textContent = `Conectado: ${userId.substring(0,8)}...`;
+      isAuthReady = true;
+      setupListener();
+      resumeActivityOnLoad();
+    } else {
+      userId = 'temp-' + crypto.randomUUID();
+      userIdEl.textContent = `Temporal: ${userId.substring(0,8)}...`;
+    }
+  });
+}
+
+window.onload = initApp;
+
+// ✅ --- exponer funciones globales ---
+window.generateReportAndSend = generateReportAndSend;
+window.clearAllData = clearAllData;
+
+  </script>
+</body>
+</html>
