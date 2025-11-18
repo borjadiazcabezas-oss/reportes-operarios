@@ -1,7 +1,6 @@
 {
   "version": 2,
   "routes": [
-    // 1. RUTA DE PRE-VUELO (OPTIONS): Maneja el CORS
     {
       "src": "/api/sendReport",
       "methods": ["OPTIONS"],
@@ -12,13 +11,11 @@
       },
       "status": 204
     },
-    // 2. RUTA PRINCIPAL (POST): Envía la solicitud a tu función de MongoDB
     {
       "src": "/api/sendReport",
       "dest": "backend/index.js",
       "methods": ["POST"]
     },
-    // 3. RUTA DE LA RAÍZ: Sirve el archivo HTML base
     {
       "src": "/",
       "dest": "/reporte_base.html"
