@@ -3,18 +3,8 @@
   "routes": [
     {
       "src": "/api/sendReport",
-      "methods": ["OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
-      },
-      "status": 204
-    },
-    {
-      "src": "/api/sendReport",
       "dest": "backend/index.js",
-      "methods": ["POST"]
+      "methods": ["POST", "OPTIONS"] 
     },
     {
       "src": "/",
