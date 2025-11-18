@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "backend/index.js",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/api/sendReport",
@@ -16,6 +10,5 @@
       "src": "/",
       "dest": "/reporte_base.html"
     }
-    // Vercel servirá automáticamente todos los otros archivos HTML estáticos.
   ]
 }
