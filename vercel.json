@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    {
+      "src": "/api/sendReport",
+      "dest": "/backend/index.js",
+      "methods": ["POST", "OPTIONS"]
+    },
+    {
+      "src": "/(.*)\\.html",
+      "dest": "/$1.html"
+    },
+    {
+      "src": "/reports/(.*)",
+      "dest": "/$1.html"
+    },
+    {
+      "src": "/$",
+      "dest": "/reporte_base.html"
+    }
+  ]
+}
