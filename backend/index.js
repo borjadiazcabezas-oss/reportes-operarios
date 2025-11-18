@@ -1,49 +1,65 @@
 import express from "express";
-import sendgrid from "@sendgrid/mail";
+import { MongoClient, ServerApiVersion } from 'mongodb'; // Importamos el driver de MongoDB
 
 // Inicializar Express
 const app = express();
 app.use(express.json());
 
-// Configurar SendGrid (Asegúrate de que SENDGRID_API_KEY esté configurada en Vercel)
-sendgrid.setApiKey(process.env.SENDGRID_API_KEY || "");
+// --- CONFIGURACIÓN DE MONGODB ---
+const uri = process.env.MONGODB_URI; // Obtiene la URI de Vercel
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+// --------------------------------
 
-// CORS permitir cualquier dominio
+// CORS
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  // Manejar OPTIONS preflight requests
   if (req.method === "OPTIONS") return res.status(200).end();
   next();
 });
 
-// Ruta API para enviar reportes
+// Ruta API para guardar reportes
 app.post("/api/sendReport", async (req, res) => {
+  // Nota: req.body contendrá { subject, html, text } enviado por el frontend.
+  // Es mejor modificar el frontend para enviar un JSON estructurado,
+  // pero por ahora guardaremos el HTML completo.
+  if (!req.body || Object.keys(req.body).length === 0) {
+     return res.status(400).json({ error: "No se recibieron datos de reporte." });
+  }
+
+  // Estructura el documento a guardar
+  const reportData = {
+    ...req.body,
+    timestamp: new Date() // Añadir fecha de inserción
+  };
+
   try {
-    const { subject, html, text } = req.body;
+    await client.connect();
+    const database = client.db("ReportesOperariosDB"); // Puedes cambiar el nombre de la BD
+    const collection = database.collection("Registros"); // Nombre de la colección
 
-    if (!subject || !html) {
-      return res.status(400).json({ error: "Faltan datos (subject o html)" });
-    }
+    const result = await collection.insertOne(reportData);
 
-    await sendgrid.send({
-      to: "borjadiazcabezas@gmail.com", // ← TU correo final
-      from: "borjadiazcabezas@gmail.com", // remitente verificado en SendGrid
-      subject,
-      html,
-      text: text || "Reporte enviado automáticamente"
+    res.json({ 
+        success: true, 
+        message: "Reporte guardado correctamente en la base de datos.",
+        insertedId: result.insertedId
     });
 
-    res.json({ success: true, message: "Reporte enviado correctamente." });
-
   } catch (error) {
-    console.error("Error al enviar email:", error);
-    res.status(500).json({ error: "Error en el servidor al enviar el correo." });
+    console.error("Error al guardar reporte en MongoDB:", error);
+    // En el caso de fallo, devolvemos un JSON para que el frontend no dé SyntaxError
+    res.status(500).json({ error: "Error en el servidor al guardar el reporte.", details: error.message });
+  } finally {
+    await client.close(); // Cierra la conexión después de la operación
   }
 });
 
-// Nota: No es necesario que esta app escuche un puerto en Vercel.
-
-// Exportar la app para Vercel
 export default app;

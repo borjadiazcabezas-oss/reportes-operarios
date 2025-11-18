@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@sendgrid/mail": "^7.7.0",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "mongodb": "^6.3.0" 
   }
 }
