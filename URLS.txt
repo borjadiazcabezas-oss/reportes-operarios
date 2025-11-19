@@ -1,0 +1,18 @@
+Operario,Código,Nombre del Archivo,URL de Acceso Completa
+Eloy Quiñones,40,reporte_eloy_40.html,https://reportes-operarios.vercel.app/reporte_eloy_40.html
+Antonio Montes,120,reporte_antonio_120.html,https://reportes-operarios.vercel.app/reporte_antonio_120.html
+Carlos Javier Rivera,158,reporte_carlos_158.html,https://reportes-operarios.vercel.app/reporte_carlos_158.html
+Humberto Mariscal,177,reporte_humberto_177.html,https://reportes-operarios.vercel.app/reporte_humberto_177.html
+Jonatan Escarraman,178,reporte_jonatan_178.html,https://reportes-operarios.vercel.app/reporte_jonatan_178.html
+Jose Gregorio Sarti,196,reporte_joseg_196.html,https://reportes-operarios.vercel.app/reporte_joseg_196.html
+Francisco Quiñones,199,reporte_franciscoq_199.html,https://reportes-operarios.vercel.app/reporte_franciscoq_199.html
+Juan Jose Sarti,203,reporte_juanjose_203.html,https://reportes-operarios.vercel.app/reporte_juanjose_203.html
+Juan Carlos Ugueto,204,reporte_juancarlos_204.html,https://reportes-operarios.vercel.app/reporte_juancarlos_204.html
+Francisco Garcia,229,reporte_franciscog_229.html,https://reportes-operarios.vercel.app/reporte_franciscog_229.html
+Francisco Romero,239,reporte_franciscor_239.html,https://reportes-operarios.vercel.app/reporte_franciscor_239.html
+Antonio Ramos,243,reporte_antonior_243.html,https://reportes-operarios.vercel.app/reporte_antonior_243.html
+Juan Manuel Baez,244,reporte_juanmanuel_244.html,https://reportes-operarios.vercel.app/reporte_juanmanuel_244.html
+Josue Cortes,246,reporte_josue_246.html,https://reportes-operarios.vercel.app/reporte_josue_246.html
+Angel Luis Torres,250,reporte_angel_250.html,https://reportes-operarios.vercel.app/reporte_angel_250.html
+Francisco Javier Herrera,251,reporte_franciscojh_251.html,https://reportes-operarios.vercel.app/reporte_franciscojh_251.html
+José Pérez,252,reporte_josep_252.html,https://reportes-operarios.vercel.app/reporte_josep_252.html
