@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Admin - Control de Actividades</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 900px; margin: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>Dashboard Admin - Control de Actividades</h2>
+
+  <div id="dashboard">
+    <h3>Historial de Actividades por Operario</h3>
+    <div id="tablesContainer"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // === FIREBASE CONFIG ORIGINAL — TAL CUAL VENÍA EN TU HTML ===
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAvXoCjalqf0B-Flr706lPPwbFguGi5OTs",
+      authDomain: "aguilarproductividad-1bcd6.firebaseapp.com",
+      projectId: "aguilarproductividad-1bcd6",
+      storageBucket: "aguilarproductividad-1bcd6.appspot.com",
+      messagingSenderId: "995069538159",
+      appId: "1:995069538159:web:1eb97bfd5d08b77fa9c29a"
+    };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  function initRealtime() {
+    const q = query(collection(db, "actividades"), orderBy("timestamp_created", "desc"));
+
+    onSnapshot(q, (snapshot) => {
+      const container = document.getElementById("tablesContainer");
+      container.innerHTML = "";
+
+      // Agrupar actividades por operario
+      const grouped = {};
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        const key = `${d.operarioNombre} (${d.operarioId})`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(d);
+      });
+
+      for (const [operario, actividades] of Object.entries(grouped)) {
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        thead.innerHTML = `<tr>
+          <th>Actividad</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Comentario Inicio</th>
+          <th>Comentario Fin</th>
+        </tr>`;
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        actividades.forEach(a => {
+          tbody.innerHTML += `<tr>
+            <td>${a.activityType}</td>
+            <td>${a.startTime ? a.startTime.toDate().toLocaleString() : "-"}</td>
+            <td>${a.endTime ? a.endTime.toDate().toLocaleString() : "-"}</td>
+            <td>${a.startComment || "-"}</td>
+            <td>${a.endComment || "-"}</td>
+          </tr>`;
+        });
+        table.appendChild(tbody);
+
+        const title = document.createElement("h4");
+        title.textContent = operario;
+        container.appendChild(title);
+        container.appendChild(table);
+      }
+    });
+  }
+
+  initRealtime();
+</script>
+</body>
+</html>
